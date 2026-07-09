@@ -1,0 +1,431 @@
+<style>
+  :root {
+    color-scheme: light dark;
+    --ink: #0f1720;
+    --paper: #f6f8fa;
+    --surface: #ffffff;
+    --surface-2: #eef2f5;
+    --line: #d3dce2;
+    --line-strong: #b6c2cb;
+    --muted: #5c6b76;
+    --text: #16222c;
+    --accent: #0d7d8a;
+    --accent-bright: #12a2b2;
+    --accent-soft: #d7edf0;
+    --pass: #1a7f4b;
+    --pass-soft: #d6efdf;
+    --block: #b4530c;
+    --block-soft: #f6e3d0;
+    --mask: #7c5cbf;
+    --mask-soft: #e7e0f6;
+    --radius: 10px;
+    --mono: ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #0c1218;
+      --surface: #121b23;
+      --surface-2: #182430;
+      --line: #26333f;
+      --line-strong: #33434f;
+      --muted: #8ea1ad;
+      --text: #dce7ee;
+      --accent: #2bb7c4;
+      --accent-bright: #45d0dc;
+      --accent-soft: #0e2e34;
+      --pass: #4cc985;
+      --pass-soft: #10291c;
+      --block: #e0913f;
+      --block-soft: #2e2011;
+      --mask: #b6a0ec;
+      --mask-soft: #201a33;
+    }
+  }
+  :root[data-theme="light"] {
+    --paper: #f6f8fa; --surface: #ffffff; --surface-2: #eef2f5; --line: #d3dce2;
+    --line-strong: #b6c2cb; --muted: #5c6b76; --text: #16222c; --accent: #0d7d8a;
+    --accent-bright: #12a2b2; --accent-soft: #d7edf0; --pass: #1a7f4b; --pass-soft: #d6efdf;
+    --block: #b4530c; --block-soft: #f6e3d0; --mask: #7c5cbf; --mask-soft: #e7e0f6;
+  }
+  :root[data-theme="dark"] {
+    --paper: #0c1218; --surface: #121b23; --surface-2: #182430; --line: #26333f;
+    --line-strong: #33434f; --muted: #8ea1ad; --text: #dce7ee; --accent: #2bb7c4;
+    --accent-bright: #45d0dc; --accent-soft: #0e2e34; --pass: #4cc985; --pass-soft: #10291c;
+    --block: #e0913f; --block-soft: #2e2011; --mask: #b6a0ec; --mask-soft: #201a33;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--text);
+    font-family: var(--sans); line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: clamp(1.5rem, 4vw, 3.5rem) clamp(1rem, 4vw, 2rem) 5rem; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--accent); font-weight: 600;
+  }
+  h1 {
+    font-size: clamp(1.9rem, 5vw, 3rem); line-height: 1.05; margin: 0.5rem 0 0;
+    letter-spacing: -0.02em; text-wrap: balance; font-weight: 750;
+  }
+  h2 {
+    font-size: clamp(1.25rem, 3vw, 1.6rem); letter-spacing: -0.01em; margin: 0;
+    text-wrap: balance; font-weight: 700;
+  }
+  h3 { font-size: 1.02rem; margin: 0 0 0.4rem; font-weight: 680; }
+  p { margin: 0.6rem 0; }
+  .lead { font-size: clamp(1.05rem, 2.2vw, 1.28rem); color: var(--text); max-width: 68ch; }
+  .muted { color: var(--muted); }
+  code, .mono { font-family: var(--mono); font-size: 0.86em; }
+  code {
+    background: var(--surface-2); padding: 0.08em 0.36em; border-radius: 5px;
+    border: 1px solid var(--line); color: var(--text);
+  }
+
+  header.masthead {
+    border-bottom: 2px solid var(--ink); border-color: var(--line-strong);
+    padding-bottom: 1.6rem; margin-bottom: 2.6rem;
+  }
+  .context {
+    display: flex; flex-wrap: wrap; gap: 0.5rem 1.4rem; margin-top: 1.4rem;
+    font-family: var(--mono); font-size: 0.78rem; color: var(--muted);
+  }
+  .context span b { color: var(--text); font-weight: 600; }
+
+  section { margin-top: 3.4rem; }
+  .sec-head { display: flex; align-items: baseline; gap: 0.9rem; margin-bottom: 1.3rem; }
+  .sec-head .n {
+    font-family: var(--mono); font-size: 0.8rem; color: var(--accent);
+    border: 1px solid var(--line-strong); border-radius: 6px; padding: 0.15rem 0.5rem;
+    flex: none;
+  }
+
+  .callout {
+    background: var(--surface); border: 1px solid var(--line);
+    border-left: 4px solid var(--accent); border-radius: var(--radius);
+    padding: 1.2rem 1.4rem;
+  }
+  .callout.warn { border-left-color: var(--block); }
+
+  /* schematic diagram */
+  .schematic { display: flex; flex-direction: column; align-items: stretch; gap: 0; }
+  .plane {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 1rem 1.1rem;
+  }
+  .plane .plabel {
+    font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 0.7rem;
+  }
+  .nodes { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+  .node {
+    flex: 1 1 200px; background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: 8px; padding: 0.6rem 0.75rem;
+  }
+  .node .nm { font-family: var(--mono); font-size: 0.83rem; font-weight: 600; color: var(--text); }
+  .node .nd { font-size: 0.78rem; color: var(--muted); margin-top: 0.15rem; }
+  .plane.accent { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .plane.accent .plabel { color: var(--accent); }
+  .connector {
+    align-self: center; width: 2px; height: 26px; background: var(--line-strong);
+    position: relative;
+  }
+  .connector::after {
+    content: ""; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+    border: 5px solid transparent; border-top-color: var(--line-strong);
+  }
+  .connector .clab {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    font-family: var(--mono); font-size: 0.68rem; color: var(--muted); white-space: nowrap;
+  }
+
+  /* pills */
+  .pill {
+    display: inline-flex; align-items: center; gap: 0.35em; font-family: var(--mono);
+    font-size: 0.72rem; font-weight: 600; padding: 0.12rem 0.5rem; border-radius: 999px;
+    border: 1px solid transparent; white-space: nowrap;
+  }
+  .pill.pass { background: var(--pass-soft); color: var(--pass); border-color: var(--pass); }
+  .pill.block { background: var(--block-soft); color: var(--block); border-color: var(--block); }
+  .pill.mask { background: var(--mask-soft); color: var(--mask); border-color: var(--mask); }
+
+  /* tables */
+  .twrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); }
+  table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 0.6rem 0.85rem; border-bottom: 1px solid var(--line); }
+  th {
+    font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--muted); background: var(--surface-2); font-weight: 600;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
+  td .mono { color: var(--text); }
+  tbody tr { background: var(--surface); }
+
+  .proof { display: grid; gap: 1.2rem; }
+  .proof-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .proof-card.hard { border-color: var(--accent); }
+  .pc-head { padding: 0.9rem 1.1rem; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap; }
+  .pc-head .tag { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); margin-left: auto; }
+  .pc-body { padding: 1rem 1.1rem; }
+  .beforeafter { display: grid; grid-template-columns: 1fr auto 1fr; gap: 0.8rem; align-items: center; }
+  @media (max-width: 620px) { .beforeafter { grid-template-columns: 1fr; } .arrow-h { display: none; } }
+  .ba-box { background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 0.8rem; }
+  .ba-box .lab { font-family: var(--mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.4rem; }
+  .ba-box .big { font-size: 1.7rem; font-weight: 720; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .arrow-h { font-family: var(--mono); color: var(--accent); font-size: 1.3rem; text-align: center; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 680px) { .grid2 { grid-template-columns: 1fr; } }
+
+  ol.steps { counter-reset: step; list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.55rem; }
+  ol.steps li {
+    counter-increment: step; position: relative; padding: 0.7rem 0.9rem 0.7rem 2.8rem;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px; font-size: 0.92rem;
+  }
+  ol.steps li::before {
+    content: counter(step); position: absolute; left: 0.7rem; top: 0.7rem;
+    font-family: var(--mono); font-size: 0.75rem; font-weight: 700; color: var(--accent);
+    width: 1.5rem; height: 1.5rem; display: grid; place-items: center;
+    border: 1px solid var(--accent); border-radius: 6px;
+  }
+
+  .kv { display: flex; flex-wrap: wrap; gap: 0.4rem 0.5rem; margin-top: 0.5rem; }
+  .footer { margin-top: 4rem; padding-top: 1.4rem; border-top: 1px solid var(--line); font-family: var(--mono); font-size: 0.76rem; color: var(--muted); }
+  a { color: var(--accent); }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <div class="eyebrow">Attribute-Based Access Control &middot; Reference Architecture</div>
+    <h1>One control table drives every policy</h1>
+    <p class="lead">A working framework where governance teams declare access in a table and tag columns &mdash; and native Unity Catalog ABAC policies are generated, applied, and audited from that single source of truth. Built and verified live.</p>
+    <div class="context">
+      <span>workspace&nbsp;<b>your-workspace</b></span>
+      <span>catalog&nbsp;<b>abac_demo</b></span>
+      <span>schema&nbsp;<b>governance</b></span>
+      <span>status&nbsp;<b>verified live</b></span>
+    </div>
+  </header>
+
+  <section>
+    <div class="callout">
+      <h3>The reframe that makes it work</h3>
+      <p class="muted" style="margin-bottom:0">The instinct is "a control table the query engine reads to decide access." That isn't buildable &mdash; a UC filter/mask function is SQL, it can't take a table name at runtime, and it never receives the matched tag value. So the control table is the <b style="color:var(--text)">source of truth a generator renders native policies from at deploy time</b>. The only thing read at query time is the flat mapping table &mdash; one row per grant. Everything stays a real, auditable UC policy.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="n">01</span><h2>Architecture</h2></div>
+    <p class="muted">Five planes. Change happens in the top plane; everything below is generated or observed.</p>
+    <div class="schematic">
+      <div class="plane accent">
+        <div class="plabel">Control plane &mdash; what humans edit</div>
+        <div class="nodes">
+          <div class="node"><div class="nm">policy_control</div><div class="nd">One row = one policy. <span class="mono">enabled</span> = intent; <span class="mono">apply_status</span> = reality (generator-set).</div></div>
+          <div class="node"><div class="nm">rls_user_grants</div><div class="nd">Unified mapping: email &rarr; (attribute_type, value). One row = one grant. Row-filter only.</div></div>
+        </div>
+      </div>
+      <div class="connector"><span class="clab">read by</span></div>
+      <div class="plane">
+        <div class="plabel">Generator &mdash; deploy step</div>
+        <div class="nodes">
+          <div class="node"><div class="nm">apply_policies.py</div><div class="nd">Renders CREATE OR REPLACE POLICY for enabled rows; drops disabled ones. Idempotent, dry-run, reconciling.</div></div>
+        </div>
+      </div>
+      <div class="connector"><span class="clab">renders</span></div>
+      <div class="plane">
+        <div class="plabel">Native UC ABAC policies &mdash; bind to standardized functions</div>
+        <div class="nodes">
+          <div class="node"><div class="nm">rls_employee &middot; rls_encounter</div><div class="nd">ROW FILTER &rarr; <span class="mono">rls_scope_filter</span> (1 attr) &middot; <span class="mono">rls_scope_filter2</span> (OR)</div></div>
+          <div class="node"><div class="nm">mask_pii</div><div class="nd">COLUMN MASK &rarr; <span class="mono">mask_value_any(value)</span></div></div>
+        </div>
+      </div>
+      <div class="connector"><span class="clab">activated by governed tags on columns</span></div>
+      <div class="plane">
+        <div class="plabel">Data &mdash; policies attach by tag, catalog-wide</div>
+        <div class="nodes">
+          <div class="node"><div class="nm">fact_encounter</div><div class="nd">row-filtered by department</div></div>
+          <div class="node"><div class="nm">employee_compensation</div><div class="nd">row-filtered by reporting hierarchy</div></div>
+          <div class="node"><div class="nm">dim_patient</div><div class="nd">PII columns masked</div></div>
+        </div>
+      </div>
+      <div class="connector"><span class="clab">observed by</span></div>
+      <div class="plane">
+        <div class="plabel">Audit &mdash; who can see what</div>
+        <div class="nodes">
+          <div class="node"><div class="nm">vw_policy_audit</div><div class="nd">Which policy hits which column, and its principals.</div></div>
+          <div class="node"><div class="nm">vw_effective_row_access</div><div class="nd">Which principal can see which rows.</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="n">02</span><h2>Proof &mdash; three policy shapes, one framework</h2></div>
+    <p class="muted">Each was declared as one <code>policy_control</code> row, generated, and then queried live as an unprivileged user &mdash; a single-attribute filter, a multi-attribute OR filter, and a universal mask.</p>
+
+    <div class="proof">
+
+      <div class="proof-card">
+        <div class="pc-head">
+          <span class="pill block">ROW FILTER &middot; OR</span>
+          <h3 style="margin:0">Department OR provider &mdash; <code>rls_encounter</code></h3>
+          <span class="tag">fact_encounter</span>
+        </div>
+        <div class="pc-body">
+          <p class="muted" style="margin-top:0">One combined policy over two attributes. Granted department CARDIOLOGY <b style="color:var(--text)">and</b> provider DR004, the user sees every cardiology row <b style="color:var(--text)">or</b> any row where they are the provider &mdash; the union. Access changes by inserting mapping rows, no redeploy.</p>
+          <div class="beforeafter">
+            <div class="ba-box"><div class="lab">Dept = CARDIOLOGY</div><div class="big">74</div><div class="muted" style="font-size:0.8rem">all cardiology <span class="pill pass">scoped</span></div></div>
+            <div class="arrow-h">&cup;</div>
+            <div class="ba-box"><div class="lab">+ any Provider = DR004</div><div class="big">96</div><div class="muted" style="font-size:0.8rem">union of both <span class="pill pass">OR</span></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="proof-card">
+        <div class="pc-head">
+          <span class="pill mask">COLUMN MASK</span>
+          <h3 style="margin:0">PII redaction &mdash; <code>mask_pii</code></h3>
+          <span class="tag">dim_patient</span>
+        </div>
+        <div class="pc-body">
+          <p class="muted" style="margin-top:0">One universal function masks every column tagged <code>masking_rule=redact</code>. Adding a masked column is just tagging it &mdash; no new policy.</p>
+          <div class="twrap">
+            <table>
+              <thead><tr><th>Column</th><th>Real value (governance team)</th><th>What everyone else sees</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">ssn</td><td class="mono muted">412-55-9033</td><td><span class="mono">***REDACTED***</span> <span class="pill mask">masked</span></td></tr>
+                <tr><td class="mono">email</td><td class="mono muted">patient7@example.com</td><td><span class="mono">***REDACTED***</span> <span class="pill mask">masked</span></td></tr>
+                <tr><td class="mono">date_of_birth</td><td class="mono muted">1974-03-12</td><td><span class="mono">1900-01-01</span> <span class="pill mask">masked</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="proof-card hard">
+        <div class="pc-head">
+          <span class="pill block">ROW FILTER</span>
+          <h3 style="margin:0">Recursive hierarchy &mdash; <code>rls_employee</code> (single-attribute)</h3>
+          <span class="tag">the hard one</span>
+        </div>
+        <div class="pc-body">
+          <p class="muted" style="margin-top:0">Managers see themselves plus <b style="color:var(--text)">all direct and indirect reports</b>. The recursion can't live in a SQL filter &mdash; so the reporting tree is pre-expanded (transitive closure) into the same flat mapping table by the materialization step. The policy is one ordinary single-attribute control row using <code>rls_scope_filter</code>.</p>
+          <div class="grid2">
+            <div class="ba-box">
+              <div class="lab">Org (10 people)</div>
+              <p class="mono" style="font-size:0.8rem; line-height:1.7; margin:0.2rem 0 0">
+                E001 ceo<br>
+                &nbsp;&nbsp;&#9500; <b style="color:var(--accent)">E002 ryan (me)</b><br>
+                &nbsp;&nbsp;&#9474;&nbsp;&nbsp;&#9500; E003 alice<br>
+                &nbsp;&nbsp;&#9474;&nbsp;&nbsp;&#9474;&nbsp;&nbsp;&#9500; E005 carol<br>
+                &nbsp;&nbsp;&#9474;&nbsp;&nbsp;&#9474;&nbsp;&nbsp;&#9492; E006 dave<br>
+                &nbsp;&nbsp;&#9474;&nbsp;&nbsp;&#9492; E004 bob<br>
+                &nbsp;&nbsp;&#9474;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&#9492; E010 heidi<br>
+                &nbsp;&nbsp;&#9492; E007 erin<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&#9500; E008 frank<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&#9492; E009 grace
+              </p>
+            </div>
+            <div class="ba-box">
+              <div class="lab">Rows visible to me</div>
+              <div class="big">6 <span style="font-size:0.9rem; font-weight:500; color:var(--muted)">/ 10</span></div>
+              <p class="muted" style="font-size:0.82rem; margin:0.3rem 0 0.6rem">exactly my subtree <span class="pill pass">scoped</span></p>
+              <p class="mono" style="font-size:0.78rem; margin:0">
+                <span style="color:var(--pass)">visible</span>&nbsp; E002 E003 E004 E005 E006 E010<br>
+                <span style="color:var(--block)">hidden</span>&nbsp;&nbsp; E001 E007 E008 E009
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="n">03</span><h2>Consolidation, measured</h2></div>
+    <p class="muted">A naive approach runs a separate function per row-filter policy. Here every attribute-based row filter is the same function; new attributes are data, not code.</p>
+    <div class="grid2">
+      <div class="callout" style="border-left-color:var(--pass)">
+        <div class="eyebrow" style="color:var(--pass)">Row filters</div>
+        <p style="margin:0.3rem 0 0"><b style="font-size:1.5rem; font-variant-numeric:tabular-nums">N filters &rarr; 2 functions</b></p>
+        <p class="muted" style="margin:0.3rem 0 0; font-size:0.9rem">Every row filter binds <code>rls_scope_filter</code> (1 attr) or <code>rls_scope_filter2</code> (OR). New attributes are data, not code &mdash; add <code>service_line</code> the same way.</p>
+      </div>
+      <div class="callout" style="border-left-color:var(--mask)">
+        <div class="eyebrow" style="color:var(--mask)">Column masks</div>
+        <p style="margin:0.3rem 0 0"><b style="font-size:1.5rem; font-variant-numeric:tabular-nums">N columns &rarr; 1 function</b></p>
+        <p class="muted" style="margin:0.3rem 0 0; font-size:0.9rem"><code>mask_value_any</code> covers every tagged column. A new masked field is one tag, zero new policies.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="n">04</span><h2>The audit surface</h2></div>
+    <p class="muted">The governance question &mdash; "who has access to what, and which policy applies to whom based on which columns" &mdash; is two queries.</p>
+    <div class="twrap">
+      <table>
+        <thead><tr><th>Policy</th><th>Type</th><th>Object</th><th>Columns hit</th><th>Applies to</th><th>Except</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">rls_encounter</td><td><span class="pill block">row &middot; OR</span></td><td class="mono">fact_encounter</td><td class="num">2</td><td class="mono">account users</td><td class="mono">data-governance-team</td></tr>
+          <tr><td class="mono">rls_employee</td><td><span class="pill block">row</span></td><td class="mono">employee_compensation</td><td class="num">1</td><td class="mono">account users</td><td class="mono">data-governance-team</td></tr>
+          <tr><td class="mono">mask_pii</td><td><span class="pill mask">mask</span></td><td class="mono">dim_patient</td><td class="num">4</td><td class="mono">account users</td><td class="mono">data-governance-team</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="muted" style="font-size:0.85rem">Source: <code>vw_policy_audit</code>, joining <code>policy_control</code> (APPLIED only) to live tag assignments. <code>vw_effective_row_access</code> lists every principal and the values they can see; <code>vw_policy_health</code> flags drift and lockouts (<code>NOT_IN_EFFECT</code>, <code>PENDING_DISABLE</code>, <code>LOCKOUT_NO_GRANTS</code>).</p>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="n">05</span><h2>Adding a policy</h2></div>
+    <div class="grid2">
+      <div>
+        <h3>New row-filter attribute</h3>
+        <ol class="steps">
+          <li>Add the value to the governed tag (<code>tag-policies</code> API).</li>
+          <li>Insert one row into <code>policy_control</code>.</li>
+          <li>Tag the column: <code>SET TAGS ('row_filter_policy'='&hellip;')</code>.</li>
+          <li>Run <code>apply_policies.py</code>.</li>
+          <li>Grant people with inserts into <code>rls_user_grants</code>.</li>
+        </ol>
+      </div>
+      <div>
+        <h3>New masked column</h3>
+        <ol class="steps">
+          <li>Tag it: <code>SET TAGS ('masking_rule'='redact')</code>.</li>
+        </ol>
+        <h3 style="margin-top:1.2rem">Retire a policy</h3>
+        <ol class="steps">
+          <li>Set <code>enabled=false</code>.</li>
+          <li>Run the generator &mdash; it drops the policy and touches nothing it doesn't manage.</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="n">06</span><h2>Runtime constraints found &mdash; read before rollout</h2></div>
+    <div class="proof">
+      <div class="callout warn">
+        <h3>At most one row filter per table</h3>
+        <p class="muted" style="margin-bottom:0">This runtime throws <code>UC_ABAC_MULTIPLE_ROW_FILTERS</code>. It <b style="color:var(--text)">contradicts a common assumption</b> (roadmap #11: self &cap; service-line &cap; location as three stacked filters). Multiple attributes on one table must be combined into a single function &mdash; which is why <code>rls_scope_filter2</code> exists (and <code>rls_encounter</code> uses it for department OR provider). Verify against your workspace version.</p>
+      </div>
+      <div class="callout warn">
+        <h3>Policies require governed tags</h3>
+        <p class="muted" style="margin-bottom:0">A policy condition only accepts a tag key registered via the Tag Policy API, with the value in its allowed set. Plain column tags fail; any trigger tag must be registered as a governed tag.</p>
+      </div>
+      <div class="callout warn">
+        <h3>A function can't receive the matched tag value</h3>
+        <p class="muted" style="margin-bottom:0">The attribute type is passed as a literal &mdash; <code>USING COLUMNS ('department_id', col)</code>. Validated working; it's what lets one generic function serve every attribute.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="footer">
+    Control-table-driven ABAC &middot; built &amp; verified in abac_demo &middot; artifacts in abac_demo/ (sql, generator, README)
+  </div>
+</div>
