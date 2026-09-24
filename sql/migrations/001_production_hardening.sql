@@ -38,9 +38,13 @@ ALTER TABLE {{catalog}}.governance.rls_user_grants ADD COLUMNS (
 
 -- @@
 UPDATE {{catalog}}.governance.rls_user_grants
-SET grant_id = coalesce(grant_id, uuid()),
+SET grant_id = coalesce(
+      grant_id,
+      sha2(concat_ws('||', email, attribute_type, attribute_value,
+                     cast(effective_date AS STRING), granted_by), 256)
+    ),
     source_system = coalesce(source_system, 'migrated_demo'),
-    created_at = coalesce(created_at, current_timestamp());
+    created_at = coalesce(created_at, cast(effective_date AS TIMESTAMP));
 
 -- @@
 CREATE TABLE IF NOT EXISTS {{catalog}}.governance.managed_policy_inventory (
@@ -58,4 +62,3 @@ CREATE TABLE IF NOT EXISTS {{catalog}}.governance.policy_deployment_events (
 
 -- Migrated policies intentionally remain DRAFT. A Governance approver must populate
 -- approved_by, approved_at, change_request_id and set approval_status='APPROVED'.
-

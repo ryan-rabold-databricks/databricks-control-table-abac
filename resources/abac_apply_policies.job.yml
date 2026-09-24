@@ -28,6 +28,7 @@ resources:
               governance_schema: "{{job.parameters.governance_schema}}"
               dry_run: "{{job.parameters.dry_run}}"
               reconcile_orphans: "{{job.parameters.reconcile_orphans}}"
+              execution_id: "{{job.run_id}}"
           timeout_seconds: 3300
           max_retries: 0
       health:
@@ -40,4 +41,3 @@ resources:
           group_name: ${var.job_admin_group}
         - level: CAN_VIEW
           group_name: ${var.job_viewer_group}
-

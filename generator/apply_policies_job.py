@@ -12,17 +12,19 @@
 # MAGIC The audit views read `apply_status`, so they never show a policy that didn't actually apply.
 
 # COMMAND ----------
-# MAGIC %run ./policy_engine
+from policy_engine import duplicate_policy_names, quote_full_name, render_policy
 
 # COMMAND ----------
 dbutils.widgets.dropdown("dry_run", "true", ["true", "false"], "Dry run (print only)")
 dbutils.widgets.text("catalog", "abac_demo", "Catalog")
 dbutils.widgets.text("governance_schema", "governance", "Governance schema")
 dbutils.widgets.dropdown("reconcile_orphans", "false", ["true", "false"], "Retire managed orphans")
+dbutils.widgets.text("execution_id", "interactive", "Job run ID")
 DRY_RUN = dbutils.widgets.get("dry_run").lower() == "true"
 CATALOG = dbutils.widgets.get("catalog")
 GOVERNANCE_SCHEMA = dbutils.widgets.get("governance_schema")
 RECONCILE_ORPHANS = dbutils.widgets.get("reconcile_orphans").lower() == "true"
+EXECUTION_ID = dbutils.widgets.get("execution_id") or "interactive"
 CONTROL_TABLE = f"{CATALOG}.{GOVERNANCE_SCHEMA}.policy_control"
 MAPPING_TABLE = f"{CATALOG}.{GOVERNANCE_SCHEMA}.rls_user_grants"
 INVENTORY_TABLE = f"{CATALOG}.{GOVERNANCE_SCHEMA}.managed_policy_inventory"
@@ -186,9 +188,9 @@ def set_status(name, status, err=None, stamp=False):
 
 def record_event(name, version, action, outcome, ddl=None, error=None):
     ddl_hash = None if ddl is None else __import__("hashlib").sha256(ddl.encode()).hexdigest()
-    spark.sql(f"INSERT INTO {EVENT_TABLE} VALUES (uuid(), {sql_str(str(spark.conf.get('spark.databricks.job.runId', 'interactive')))}, "
+    spark.sql(f"INSERT INTO {EVENT_TABLE} SELECT uuid(), {sql_str(EXECUTION_ID)}, "
               f"{sql_str(name)}, {version if version is not None else 'NULL'}, {sql_str(action)}, {sql_str(outcome)}, "
-              f"{sql_str(ddl_hash)}, current_user(), current_timestamp(), {sql_str(error)})")
+              f"{sql_str(ddl_hash)}, current_user(), current_timestamp(), {sql_str(error)}")
 
 def merge_inventory(policy_row, ddl):
     ddl_hash = __import__("hashlib").sha256(ddl.encode()).hexdigest()
@@ -196,7 +198,9 @@ def merge_inventory(policy_row, ddl):
               f"ON t.policy_name=s.policy_name WHEN MATCHED THEN UPDATE SET scope_type={sql_str(policy_row['scope_type'])}, "
               f"scope_name={sql_str(policy_row['scope_name'])}, policy_id={sql_str(policy_row['policy_id'])}, "
               f"policy_version={policy_row['policy_version']}, ddl_hash={sql_str(ddl_hash)}, last_applied_at=current_timestamp(), retired_at=NULL "
-              f"WHEN NOT MATCHED THEN INSERT VALUES ({sql_str(policy_row['policy_name'])}, {sql_str(policy_row['scope_type'])}, "
+              f"WHEN NOT MATCHED THEN INSERT (policy_name, scope_type, scope_name, policy_id, policy_version, ddl_hash, "
+              f"managed_by, first_applied_at, last_applied_at, retired_at) VALUES "
+              f"({sql_str(policy_row['policy_name'])}, {sql_str(policy_row['scope_type'])}, "
               f"{sql_str(policy_row['scope_name'])}, {sql_str(policy_row['policy_id'])}, {policy_row['policy_version']}, "
               f"{sql_str(ddl_hash)}, 'control-table-abac', current_timestamp(), current_timestamp(), NULL)")
 
@@ -222,7 +226,11 @@ else:
                 set_status(name, "SKIPPED", err); failures.append(name); log(f"SKIPPED:  {name} ({err})")
         except Exception as e:
             set_status(name, "FAILED", str(e)); failures.append(name); log(f"FAILED:   {name} ({str(e)[:120]})")
-            record_event(name, policy_row.get("policy_version"), action, "FAILED", ddl, str(e))
+            try:
+                record_event(name, policy_row.get("policy_version"), action, "FAILED", ddl, str(e))
+            except Exception as audit_error:
+                # Preserve the original apply error; audit failure is still visible in job output.
+                log(f"AUDIT FAILED: {name} ({str(audit_error)[:120]})")
     log("\nReconcile complete." + (f" Problems with: {', '.join(failures)}" if failures else " All healthy."))
 
 # COMMAND ----------
