@@ -12,7 +12,7 @@
 # MAGIC The audit views read `apply_status`, so they never show a policy that didn't actually apply.
 
 # COMMAND ----------
-from policy_engine import duplicate_policy_names, quote_full_name, render_policy
+from policy_engine import duplicate_policy_names, effective_policy_names, quote_full_name, render_policy
 
 # COMMAND ----------
 dbutils.widgets.dropdown("dry_run", "true", ["true", "false"], "Dry run (print only)")
@@ -95,7 +95,10 @@ def known_principal(p):
     return p.lower() in _valid_lower or bool(_UUID_RE.match(p.strip()))
 
 grant_counts = {r["attribute_type"]: r["c"] for r in spark.sql(
-    f"SELECT attribute_type, count(*) c FROM {MAPPING_TABLE} GROUP BY attribute_type").collect()}
+    f"SELECT attribute_type, count(*) c FROM {MAPPING_TABLE} "
+    "WHERE revoked_at IS NULL AND effective_date <= current_date() "
+    "AND (expiration_date IS NULL OR expiration_date >= current_date()) "
+    "GROUP BY attribute_type").collect()}
 
 rows = spark.sql(f"SELECT policy_id, policy_name, policy_type, scope_type, scope_name, udf, attr_types, tag_key, tag_values, "
                  f"to_principals, except_principals, enabled, comment, approval_status, approved_by, approved_at, "
@@ -194,14 +197,15 @@ def record_event(name, version, action, outcome, ddl=None, error=None):
 
 def merge_inventory(policy_row, ddl):
     ddl_hash = __import__("hashlib").sha256(ddl.encode()).hexdigest()
+    policy_version = "NULL" if policy_row.get("policy_version") is None else str(int(policy_row["policy_version"]))
     spark.sql(f"MERGE INTO {INVENTORY_TABLE} t USING (SELECT {sql_str(policy_row['policy_name'])} policy_name) s "
               f"ON t.policy_name=s.policy_name WHEN MATCHED THEN UPDATE SET scope_type={sql_str(policy_row['scope_type'])}, "
               f"scope_name={sql_str(policy_row['scope_name'])}, policy_id={sql_str(policy_row['policy_id'])}, "
-              f"policy_version={policy_row['policy_version']}, ddl_hash={sql_str(ddl_hash)}, last_applied_at=current_timestamp(), retired_at=NULL "
+              f"policy_version={policy_version}, ddl_hash={sql_str(ddl_hash)}, last_applied_at=current_timestamp(), retired_at=NULL "
               f"WHEN NOT MATCHED THEN INSERT (policy_name, scope_type, scope_name, policy_id, policy_version, ddl_hash, "
               f"managed_by, first_applied_at, last_applied_at, retired_at) VALUES "
               f"({sql_str(policy_row['policy_name'])}, {sql_str(policy_row['scope_type'])}, "
-              f"{sql_str(policy_row['scope_name'])}, {sql_str(policy_row['policy_id'])}, {policy_row['policy_version']}, "
+              f"{sql_str(policy_row['scope_name'])}, {sql_str(policy_row['policy_id'])}, {policy_version}, "
               f"{sql_str(ddl_hash)}, 'control-table-abac', current_timestamp(), current_timestamp(), NULL)")
 
 failures = []
@@ -251,7 +255,7 @@ if not DRY_RUN:
         found = False
         for attempt in range(6):
             effective = spark.sql(f"SHOW EFFECTIVE POLICIES ON TABLE {table_name}").collect()
-            if item["policy_name"] in "\n".join(str(row) for row in effective):
+            if item["policy_name"] in effective_policy_names(effective):
                 found = True
                 break
             time.sleep(10)

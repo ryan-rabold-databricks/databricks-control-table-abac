@@ -3,13 +3,35 @@
 --   rbac_user_attributes -> rls_user_grants   (table; row-filter grant substrate)
 --   rbac_scope_filter     -> rls_scope_filter    (1-attribute filter)
 --   rbac_scope_filter2    -> rls_scope_filter2   (2-attribute OR filter)
--- Run order: this file, THEN the generator (repoints policies to the new udfs),
--- THEN drop the old functions (08). Column masks are unaffected.
+-- This migration also adds the grant-lifecycle columns required by its UDFs.
+-- Run order: this file, THEN 002_principal_grants.sql, refresh foundation/views,
+-- run the generator, validate, and finally run 003_drop_legacy_user_grants.sql.
 -- =============================================================================
 
 -- Rename the grants table (preserves data + history).
 ALTER TABLE {{catalog}}.governance.rbac_user_attributes
   RENAME TO {{catalog}}.governance.rls_user_grants;
+
+-- @@
+ALTER TABLE {{catalog}}.governance.rls_user_grants ADD COLUMNS (
+  grant_id STRING,
+  expiration_date DATE,
+  revoked_at TIMESTAMP,
+  approved_by STRING,
+  source_system STRING,
+  change_request_id STRING,
+  created_at TIMESTAMP
+);
+
+-- @@
+UPDATE {{catalog}}.governance.rls_user_grants
+SET grant_id = coalesce(
+      grant_id,
+      sha2(concat_ws('||', email, attribute_type, attribute_value,
+                     cast(effective_date AS STRING), granted_by), 256)
+    ),
+    source_system = coalesce(source_system, 'migrated_demo'),
+    created_at = coalesce(created_at, cast(effective_date AS TIMESTAMP));
 
 -- @@
 -- Recreate the filter functions under rls_* names, pointing at rls_user_grants.

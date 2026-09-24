@@ -160,7 +160,10 @@ def main():
         return p.lower() in valid_lower or bool(_UUID_RE.match(p.strip()))
 
     grants = {r[0]: int(r[1]) for r in
-              sql(f"SELECT attribute_type, count(*) FROM {mapping} GROUP BY attribute_type")}
+              sql(f"SELECT attribute_type, count(*) FROM {mapping} "
+                  "WHERE revoked_at IS NULL AND effective_date <= current_date() "
+                  "AND (expiration_date IS NULL OR expiration_date >= current_date()) "
+                  "GROUP BY attribute_type")}
     columns = ["policy_id", "policy_name", "policy_type", "scope_type", "scope_name", "udf",
                "attr_types", "tag_key", "tag_values", "to_principals", "except_principals",
                "enabled", "comment", "approval_status", "approved_by", "approved_at",
@@ -168,6 +171,13 @@ def main():
     raw_rows = sql(f"SELECT {', '.join(columns)} FROM {control} ORDER BY policy_name")
     rows = [dict(zip(columns, row)) for row in raw_rows]
     for row in rows:
+        # Statement Execution returns scalar values as strings; restore the UC INT type
+        # before applying the shared strict validator.
+        if row.get("policy_version") is not None:
+            try:
+                row["policy_version"] = int(row["policy_version"])
+            except (TypeError, ValueError):
+                pass
         for key in ("attr_types", "tag_values", "to_principals", "except_principals"):
             row[key] = as_list(row.get(key))
     duplicates = duplicate_policy_names(rows)
@@ -237,12 +247,14 @@ def main():
     def merge_inventory(policy_row, ddl):
         import hashlib
         ddl_hash = hashlib.sha256(ddl.encode()).hexdigest()
+        policy_version = ("NULL" if policy_row.get("policy_version") is None
+                          else str(int(policy_row["policy_version"])))
         sql(f"MERGE INTO {inventory_table} t USING (SELECT {sql_str(policy_row['policy_name'])} policy_name) s "
             f"ON t.policy_name=s.policy_name WHEN MATCHED THEN UPDATE SET scope_type={sql_str(policy_row['scope_type'])}, "
             f"scope_name={sql_str(policy_row['scope_name'])}, policy_id={sql_str(policy_row['policy_id'])}, "
-            f"policy_version={policy_row['policy_version']}, ddl_hash={sql_str(ddl_hash)}, last_applied_at=current_timestamp(), retired_at=NULL "
+            f"policy_version={policy_version}, ddl_hash={sql_str(ddl_hash)}, last_applied_at=current_timestamp(), retired_at=NULL "
             f"WHEN NOT MATCHED THEN INSERT VALUES ({sql_str(policy_row['policy_name'])}, {sql_str(policy_row['scope_type'])}, "
-            f"{sql_str(policy_row['scope_name'])}, {sql_str(policy_row['policy_id'])}, {policy_row['policy_version']}, "
+            f"{sql_str(policy_row['scope_name'])}, {sql_str(policy_row['policy_id'])}, {policy_version}, "
             f"{sql_str(ddl_hash)}, 'control-table-abac', current_timestamp(), current_timestamp(), NULL)")
 
     failures = []

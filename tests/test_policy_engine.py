@@ -4,7 +4,13 @@ from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "generator"))
-from policy_engine import PolicyValidationError, duplicate_policy_names, render_policy, validate_policy
+from policy_engine import (
+    PolicyValidationError,
+    duplicate_policy_names,
+    effective_policy_names,
+    render_policy,
+    validate_policy,
+)
 
 
 def valid_row(**overrides):
@@ -23,6 +29,7 @@ def valid_row(**overrides):
         "approved_by": "governance@example.com",
         "approved_at": datetime(2026, 1, 1),
         "change_request_id": "CHG-123",
+        "policy_version": 1,
         "comment": "Provider scope",
     }
     row.update(overrides)
@@ -50,7 +57,23 @@ class PolicyEngineTests(unittest.TestCase):
             duplicate_policy_names([valid_row(), valid_row()]), {"rls_provider"}
         )
 
+    def test_requires_positive_integer_policy_version(self):
+        for value in (None, 0, -1, "1", True):
+            with self.subTest(value=value):
+                self.assertIn(
+                    "policy_version must be a positive integer",
+                    validate_policy(valid_row(policy_version=value)),
+                )
+
+    def test_effective_policy_names_are_exact(self):
+        rows = [
+            {"Policy Name": "rls_employee_backup", "Comment": "mentions rls_employee"},
+            {"Policy Name": "mask_pii"},
+        ]
+        names = effective_policy_names(rows)
+        self.assertNotIn("rls_employee", names)
+        self.assertEqual(names, {"rls_employee_backup", "mask_pii"})
+
 
 if __name__ == "__main__":
     unittest.main()
-

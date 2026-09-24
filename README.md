@@ -216,8 +216,9 @@ python generator/apply_policies.py                       # render + apply + reco
 
 Final live policies: `mask_pii`, `rls_employee` (single-attribute), `rls_encounter`
 (department-OR-provider). `sql/07_rename.sql` is the legacy **one-time migration** from
-old `rbac_*` objects. Existing `rls_user_grants` deployments should instead run
-`sql/migrations/002_principal_grants.sql`, refresh foundation/views, validate, and then run
+old `rbac_*` objects. Existing `rls_user_grants` deployments must run
+`sql/migrations/001_production_hardening.sql` before
+`sql/migrations/002_principal_grants.sql`, then refresh foundation/views, validate, and run
 `sql/migrations/003_drop_legacy_user_grants.sql`.
 — not part of a fresh install.
 

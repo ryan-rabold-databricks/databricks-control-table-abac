@@ -1,4 +1,6 @@
 -- ONE-TIME UPGRADE from rls_user_grants to the unified principal grant model.
+-- Prerequisite: first run 001_production_hardening.sql. Deployments originating
+-- from rbac_user_attributes may instead run the self-hardening 07_rename.sql.
 -- Run 01_foundation.sql and 04_audit_views.sql immediately after this migration,
 -- validate the job, and only then run 003_drop_legacy_user_grants.sql.
 
@@ -39,4 +41,3 @@ WHEN NOT MATCHED THEN INSERT (
   s.attribute_value, s.effective_date, s.expiration_date, s.revoked_at, s.granted_by,
   s.approved_by, s.source_system, s.change_request_id, s.created_at
 );
-

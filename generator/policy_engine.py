@@ -86,6 +86,9 @@ def validate_policy(row: Mapping[str, Any]) -> list[str]:
         errors.append("approved_by and approved_at are required")
     if not row.get("change_request_id"):
         errors.append("change_request_id is required")
+    version = row.get("policy_version")
+    if isinstance(version, bool) or not isinstance(version, int) or version < 1:
+        errors.append("policy_version must be a positive integer")
     return errors
 
 
@@ -144,3 +147,12 @@ def duplicate_policy_names(rows: Iterable[Mapping[str, Any]]) -> set[str]:
         seen.add(name)
     return duplicates
 
+
+def effective_policy_names(rows: Iterable[Any]) -> set[str]:
+    """Extract exact policy names from SHOW EFFECTIVE POLICIES result rows."""
+    names: set[str] = set()
+    for row in rows:
+        values = row.asDict(recursive=True) if hasattr(row, "asDict") else row
+        if isinstance(values, Mapping) and values.get("Policy Name") is not None:
+            names.add(str(values["Policy Name"]))
+    return names
