@@ -196,7 +196,16 @@ def main():
                 plan.append((name, "SKIP", None,
                              "disabled policies require approved RETIRED state and change evidence", r))
                 continue
-            plan.append((name, "DROP" if name in inventory else "DISABLED", None, None, r))
+            if name in inventory:
+                drop_row = dict(r)
+                drop_row["scope_type"], drop_row["scope_name"] = inventory[name]
+                plan.append((name, "DROP", None, None, drop_row))
+            else:
+                plan.append((name, "DISABLED", None, None, r))
+            continue
+        if name in inventory and inventory[name] != (r["scope_type"], r["scope_name"]):
+            plan.append((name, "SKIP", None,
+                         "scope differs from managed inventory; retire the existing policy before moving it", r))
             continue
         missing = [p for p in as_list(r["to_principals"]) + as_list(r["except_principals"]) if not known_principal(p)]
         if missing:
@@ -261,7 +270,18 @@ def main():
     for name, action, ddl, err, policy_row in plan:
         try:
             if action == "APPLY":
-                sql(ddl); merge_inventory(policy_row, ddl); set_status(name, "APPLIED", None, True); print(f"applied:  {name}")
+                if name not in inventory:
+                    merge_inventory(policy_row, ddl)
+                    try:
+                        sql(ddl)
+                    except Exception:
+                        sql(f"UPDATE {inventory_table} SET retired_at=current_timestamp() "
+                            f"WHERE policy_name={sql_str(name)}")
+                        raise
+                else:
+                    sql(ddl)
+                    merge_inventory(policy_row, ddl)
+                set_status(name, "APPLIED", None, True); print(f"applied:  {name}")
             elif action in ("DROP", "DROP_ORPHAN"):
                 sql(f"DROP POLICY {q(name)} ON {policy_row['scope_type']} {quote_full_name(policy_row['scope_name'])}")
                 sql(f"UPDATE {inventory_table} SET retired_at=current_timestamp() WHERE policy_name={sql_str(name)}")

@@ -138,7 +138,16 @@ for r in row_dicts:
         if r.get("approval_status") != "RETIRED" or not r.get("approved_by") or not r.get("approved_at") or not r.get("change_request_id"):
             plan.append((name, "SKIP", None, "disabled policies require approved RETIRED state and change evidence", r))
             continue
-        plan.append((name, "DROP" if name in inventory else "DISABLED", None, None, r))
+        if name in inventory:
+            drop_row = dict(r)
+            drop_row["scope_type"], drop_row["scope_name"] = inventory[name]
+            plan.append((name, "DROP", None, None, drop_row))
+        else:
+            plan.append((name, "DISABLED", None, None, r))
+        continue
+    if name in inventory and inventory[name] != (r["scope_type"], r["scope_name"]):
+        plan.append((name, "SKIP", None,
+                     "scope differs from managed inventory; retire the existing policy before moving it", r))
         continue
     # principal pre-check
     principals = list(r["to_principals"] or []) + list(r["except_principals"] or [])
@@ -218,7 +227,21 @@ else:
     for name, action, ddl, err, policy_row in plan:
         try:
             if action == "APPLY":
-                spark.sql(ddl); merge_inventory(policy_row, ddl); set_status(name, "APPLIED", None, stamp=True)
+                if name not in inventory:
+                    # Establish ownership before creating a new policy so a later
+                    # bookkeeping failure cannot leave a live, unmanaged policy.
+                    merge_inventory(policy_row, ddl)
+                    try:
+                        spark.sql(ddl)
+                    except Exception:
+                        spark.sql(f"UPDATE {INVENTORY_TABLE} SET retired_at=current_timestamp() "
+                                  f"WHERE policy_name={sql_str(name)}")
+                        raise
+                else:
+                    # Existing policies are already tracked; apply first, then refresh metadata.
+                    spark.sql(ddl)
+                    merge_inventory(policy_row, ddl)
+                set_status(name, "APPLIED", None, stamp=True)
                 record_event(name, policy_row.get("policy_version"), action, "SUCCEEDED", ddl); log(f"applied:  {name}")
             elif action in ("DROP", "DROP_ORPHAN"):
                 spark.sql(f"DROP POLICY {q(name)} ON {policy_row['scope_type']} {quote_full_name(policy_row['scope_name'])}")

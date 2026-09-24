@@ -121,8 +121,7 @@ RETURN p_value IS NOT NULL AND EXISTS (
     AND (
          (UPPER(m.principal_type) = 'GROUP' AND is_account_group_member(m.principal_name))
       OR (UPPER(m.principal_type) IN ('USER', 'SERVICE_PRINCIPAL')
-          AND (LOWER(m.principal_name) = LOWER(current_user())
-               OR LOWER(m.principal_id) = LOWER(current_user())))
+          AND LOWER(m.principal_name) = LOWER(current_user()))
     )
     AND m.effective_date <= current_date()
     AND (m.expiration_date IS NULL OR m.expiration_date >= current_date())
@@ -147,8 +146,7 @@ RETURN EXISTS (
     AND (
          (UPPER(m.principal_type) = 'GROUP' AND is_account_group_member(m.principal_name))
       OR (UPPER(m.principal_type) IN ('USER', 'SERVICE_PRINCIPAL')
-          AND (LOWER(m.principal_name) = LOWER(current_user())
-               OR LOWER(m.principal_id) = LOWER(current_user())))
+          AND LOWER(m.principal_name) = LOWER(current_user()))
     )
     AND (
          (a1_val IS NOT NULL AND m.attribute_type = a1_type

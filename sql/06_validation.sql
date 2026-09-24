@@ -27,7 +27,7 @@ SELECT grant_id, principal_type, principal_id, principal_name
 FROM {{catalog}}.governance.rls_principal_grants
 WHERE principal_type NOT IN ('USER', 'GROUP', 'SERVICE_PRINCIPAL')
    OR (principal_id IS NULL AND principal_name IS NULL)
-   OR (principal_type = 'GROUP' AND principal_name IS NULL);
+   OR principal_name IS NULL;
 
 -- @@
 -- Approved/enabled policies that are not observed as applied.

@@ -153,6 +153,10 @@ def effective_policy_names(rows: Iterable[Any]) -> set[str]:
     names: set[str] = set()
     for row in rows:
         values = row.asDict(recursive=True) if hasattr(row, "asDict") else row
-        if isinstance(values, Mapping) and values.get("Policy Name") is not None:
-            names.add(str(values["Policy Name"]))
+        if isinstance(values, Mapping):
+            normalized = {str(key).strip().lower().replace("_", " "): value
+                          for key, value in values.items()}
+            value = normalized.get("policy name")
+            if value is not None:
+                names.add(str(value))
     return names

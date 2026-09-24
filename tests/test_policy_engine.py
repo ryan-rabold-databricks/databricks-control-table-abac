@@ -68,7 +68,7 @@ class PolicyEngineTests(unittest.TestCase):
     def test_effective_policy_names_are_exact(self):
         rows = [
             {"Policy Name": "rls_employee_backup", "Comment": "mentions rls_employee"},
-            {"Policy Name": "mask_pii"},
+            {"policy_name": "mask_pii"},
         ]
         names = effective_policy_names(rows)
         self.assertNotIn("rls_employee", names)
