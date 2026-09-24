@@ -226,7 +226,7 @@
         <div class="plabel">Control plane &mdash; what humans edit</div>
         <div class="nodes">
           <div class="node"><div class="nm">policy_control</div><div class="nd">One row = one policy. <span class="mono">enabled</span> = intent; <span class="mono">apply_status</span> = reality (generator-set).</div></div>
-          <div class="node"><div class="nm">rls_user_grants</div><div class="nd">Unified mapping: email &rarr; (attribute_type, value). One row = one grant. Row-filter only.</div></div>
+          <div class="node"><div class="nm">rls_principal_grants</div><div class="nd">Unified mapping: user, group, or service principal &rarr; (attribute_type, value). One row = one grant.</div></div>
         </div>
       </div>
       <div class="connector"><span class="clab">read by</span></div>
@@ -390,7 +390,7 @@
           <li>Insert one row into <code>policy_control</code>.</li>
           <li>Tag the column: <code>SET TAGS ('row_filter_policy'='&hellip;')</code>.</li>
           <li>Run <code>apply_policies.py</code>.</li>
-          <li>Grant people with inserts into <code>rls_user_grants</code>.</li>
+          <li>Grant users, groups, or service principals with inserts into <code>rls_principal_grants</code>.</li>
         </ol>
       </div>
       <div>

@@ -53,10 +53,12 @@ FROM {{catalog}}.governance.employee_hierarchy h;
 -- MATERIALIZE the transitive closure into the unified grants table.
 -- For each manager (root_email), every employee_id in their subtree incl. self.
 -- This is the ONLY place the hierarchy recursion runs; re-runnable (delete+insert).
-DELETE FROM {{catalog}}.governance.rls_user_grants WHERE attribute_type = 'employee_id';
+DELETE FROM {{catalog}}.governance.rls_principal_grants WHERE attribute_type = 'employee_id';
 
 -- @@
-INSERT INTO {{catalog}}.governance.rls_user_grants
+INSERT INTO {{catalog}}.governance.rls_principal_grants
+  (grant_id, principal_type, principal_id, principal_name, attribute_type, attribute_value, effective_date, expiration_date,
+   revoked_at, granted_by, approved_by, source_system, change_request_id, created_at)
 WITH RECURSIVE subtree AS (
   SELECT employee_id AS root_id, employee_email AS root_email, employee_id AS descendant_id
   FROM {{catalog}}.governance.employee_hierarchy
@@ -66,7 +68,8 @@ WITH RECURSIVE subtree AS (
   JOIN {{catalog}}.governance.employee_hierarchy h
     ON h.manager_employee_id = s.descendant_id
 )
-SELECT root_email, 'employee_id', descendant_id, current_date(), 'hierarchy_job'
+SELECT uuid(), 'USER', NULL, root_email, 'employee_id', descendant_id, current_date(), NULL, NULL,
+       'hierarchy_job', 'governance@example.com', 'employee_hierarchy', 'DEMO-002', current_timestamp()
 FROM subtree
 WHERE root_email IS NOT NULL;
 

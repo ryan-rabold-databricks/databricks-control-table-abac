@@ -30,7 +30,7 @@ how UC ABAC works, and building it that way fights the platform:
 So the control table is the **source of truth a generator renders policies from at
 deploy time** — not a runtime lookup. The generated artifacts are real, native UC
 policies, which keeps UC's own auditability intact. The per-user, per-row scoping *is*
-pure data (`rls_user_grants`), read at query time by one standardized function.
+pure data (`rls_principal_grants`), read at query time by one standardized function.
 
 **Two states, kept separate:** `policy_control.enabled` is *desired intent* (human-set);
 `apply_status` is *observed reality* (generator-set). The audit views read `apply_status`,
@@ -42,7 +42,7 @@ so they never show a policy that failed to apply or was dropped.
 
 ```
   governance.policy_control      ← 1 row  = 1 policy   (declarative source of truth)
-  governance.rls_user_grants     ← 1 row  = 1 grant    (who is scoped to what)  [row-filter only]
+  governance.rls_principal_grants ← 1 row = 1 principal grant (who is scoped to what) [row-filter only]
             │
             ▼
   apply_policies (CLI or Databricks job)   ← renders CREATE OR REPLACE POLICY,
@@ -65,7 +65,7 @@ so they never show a policy that failed to apply or was dropped.
 | Object | Role |
 |---|---|
 | `policy_control` (table) | One row per policy. The "insert one row" surface. `enabled`=intent, `apply_status`=reality. |
-| `rls_user_grants` (table) | Unified tall mapping `email → (attribute_type, attribute_value)`. Row-filter grants only. |
+| `rls_principal_grants` (table) | Unified tall mapping `(USER|GROUP|SERVICE_PRINCIPAL, identity) → (attribute_type, attribute_value)`. |
 | `rls_scope_filter(attr_type, value)` | Single-attribute row filter. |
 | `rls_scope_filter2(a1_type,a1,a2_type,a2)` | Two-attribute **OR** row filter. |
 | `mask_value_any(value)` | Universal type-aware redactor for all masks. |
@@ -110,10 +110,10 @@ the binding:**
 | `employee_compensation` as a mid-level manager | sees own row + entire reporting subtree (6 of 10) |
 | `dim_patient` PII, non-privileged | `ssn`/`email` → `***REDACTED***`, DOB → `1900-01-01` |
 | Row filter live, zero grants | user sees 0 rows; `vw_policy_health` = `LOCKOUT_NO_GRANTS` |
-| Grant added to `rls_user_grants` | takes effect immediately — **no policy edit, no redeploy** |
+| Grant added to `rls_principal_grants` | takes effect immediately — **no policy edit, no redeploy** |
 
 Recursive `rls_employee`: the reporting tree's transitive closure is pre-expanded into
-`rls_user_grants` by a materialization step, so the same equality function handles it.
+`rls_principal_grants` by a materialization step, so the same equality function handles it.
 
 ---
 
@@ -124,9 +124,15 @@ Recursive `rls_employee`: the reporting tree's transitive closure is pre-expande
 - **Zero-grant warning** — a row filter with no grants for any of its attributes would lock everyone out.
 - **Status write-back** — `apply_status` / `last_applied_at` / `last_error` after every run; the notebook raises at the end if anything failed so the job run is flagged.
 
-Two generators, kept in parity: `generator/apply_policies.py` (CLI) and
-`generator/apply_policies_job.py` (the deployed notebook, job `abac_apply_policies`,
-param `dry_run` default `true`).
+The CLI and deployed notebook share validation and DDL rendering from
+`generator/policy_engine.py`. The Lakeflow Job is deployed with the bundle resource
+`resources/abac_apply_policies.job.yml`, defaults to `dry_run=true`, and enforces a single
+concurrent run.
+
+For production controls, upgrade guidance, approval gates, managed-orphan reconciliation,
+and deployment instructions, see [`PRODUCTION_DEPLOYMENT.md`](PRODUCTION_DEPLOYMENT.md).
+For the target FEVM workspace redeployment sequence, see
+[`REDEPLOY_FEV_CLASSIC_STABLE.md`](REDEPLOY_FEV_CLASSIC_STABLE.md).
 
 ---
 
@@ -153,7 +159,7 @@ param `dry_run` default `true`).
 2. `INSERT` one row into `policy_control` (`attr_types=array('x')`, `tag_values=array('x')`, udf `rls_scope_filter`).
 3. Tag the column: `ALTER COLUMN x SET TAGS ('row_filter_policy'='x')`.
 4. Run the generator (job or CLI).
-5. Grant people with `INSERT`s into `rls_user_grants`.
+5. Grant users, groups, or service principals with `INSERT`s into `rls_principal_grants`.
 
 **Add a second attribute to a table** (one table needs A **or** B): use one combined row
 (`attr_types=array('a','b')`, udf `rls_scope_filter2`, policy-scoped `tag_values`),
@@ -173,7 +179,7 @@ equivalent `--warehouse` / `--profile` / `--catalog` flags):
 | Variable | Purpose | Default |
 |---|---|---|
 | `DATABRICKS_WAREHOUSE_ID` | SQL warehouse the CLI generator / `run_sql.py` use | *(required)* |
-| `DATABRICKS_CONFIG_PROFILE` | Databricks CLI auth profile | `DEFAULT` |
+| `DATABRICKS_CONFIG_PROFILE` | Explicit Databricks CLI auth profile | *(required unless `--profile` is passed)* |
 | `ABAC_CATALOG` | Target Unity Catalog (**must already exist**) | `abac_demo` |
 
 - **Catalog is an input parameter, not created here.** The SQL files use a `{{catalog}}`
@@ -197,7 +203,8 @@ First register the governed tags (see `sql/00_setup.sql` header), then:
 
 ```bash
 export DATABRICKS_WAREHOUSE_ID=<your-warehouse-id>
-export ABAC_CATALOG=<your-existing-catalog>          # + DATABRICKS_CONFIG_PROFILE if not DEFAULT
+export ABAC_CATALOG=<your-existing-catalog>
+export DATABRICKS_CONFIG_PROFILE=<your-explicit-profile>
 python generator/run_sql.py sql/00_setup.sql             # schemas + demo tables in your catalog
 python generator/run_sql.py sql/01_foundation.sql        # functions + control tables
 python generator/run_sql.py sql/02_data.sql              # synthetic data + column tags
@@ -208,7 +215,11 @@ python generator/apply_policies.py                       # render + apply + reco
 ```
 
 Final live policies: `mask_pii`, `rls_employee` (single-attribute), `rls_encounter`
-(department-OR-provider). `sql/07_rename.sql` is a **one-time migration** (old `rbac_*` → `rls_*`)
+(department-OR-provider). `sql/07_rename.sql` is the legacy **one-time migration** from
+old `rbac_*` objects. Existing `rls_user_grants` deployments must run
+`sql/migrations/001_production_hardening.sql` before
+`sql/migrations/002_principal_grants.sql`, then refresh foundation/views, validate, and run
+`sql/migrations/003_drop_legacy_user_grants.sql`.
 — not part of a fresh install.
 
 ---
@@ -217,7 +228,7 @@ Final live policies: `mask_pii`, `rls_employee` (single-attribute), `rls_encount
 
 | Policy shape | This demo |
 |---|---|
-| A. user-identity row filter (`rbac_employee`, `rbac_provider`, …) | one `rls_scope_filter` + `rls_user_grants` + N control rows |
+| A. identity row filter (`rls_employee`, `rls_provider`, …) | one `rls_scope_filter` + `rls_principal_grants` + N control rows |
 | A. multiple attributes on one table (roadmap #9∩#10∩#11) | one `rls_scope_filter2` (OR) + one combined control row |
 | B. static column mask (`mask_sensitive_hr`, `mask_phi`) | one `mask_value_any` + `masking_rule` tag |
 | C. group-membership gate (`rbac_supply_chain_subdomain`) | control row with a group in `to`/`except` |

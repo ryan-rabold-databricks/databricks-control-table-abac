@@ -33,19 +33,27 @@ WHERE pc.apply_status = 'APPLIED';
 -- of EITHER attribute, which is exactly the union a user can see.
 CREATE OR REPLACE VIEW {{catalog}}.governance.vw_effective_row_access AS
 SELECT
-  m.email            AS principal,
+  m.principal_type,
+  m.principal_id,
+  m.principal_name   AS principal,
   pe.policy_name,
   pe.attr            AS attribute_type,
   m.attribute_value  AS allowed_value,
   m.granted_by,
-  m.effective_date
+  m.effective_date,
+  m.expiration_date,
+  m.change_request_id,
+  m.source_system
 FROM (
   SELECT policy_name, explode(attr_types) AS attr
   FROM {{catalog}}.governance.policy_control
   WHERE apply_status = 'APPLIED' AND policy_type = 'ROW_FILTER'
 ) pe
-JOIN {{catalog}}.governance.rls_user_grants m
-  ON m.attribute_type = pe.attr;
+JOIN {{catalog}}.governance.rls_principal_grants m
+  ON m.attribute_type = pe.attr
+WHERE m.effective_date <= current_date()
+  AND (m.expiration_date IS NULL OR m.expiration_date >= current_date())
+  AND m.revoked_at IS NULL;
 
 -- @@
 -- Operational health: desired vs observed, grant coverage (summed across the
@@ -74,7 +82,10 @@ LEFT JOIN (
         FROM {{catalog}}.governance.policy_control
         WHERE policy_type = 'ROW_FILTER') p
   LEFT JOIN (SELECT attribute_type, count(*) c
-             FROM {{catalog}}.governance.rls_user_grants
+             FROM {{catalog}}.governance.rls_principal_grants
+             WHERE revoked_at IS NULL
+               AND effective_date <= current_date()
+               AND (expiration_date IS NULL OR expiration_date >= current_date())
              GROUP BY attribute_type) g
     ON g.attribute_type = p.attr
   GROUP BY p.policy_name
