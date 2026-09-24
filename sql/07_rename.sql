@@ -23,6 +23,9 @@ RETURN p_value IS NOT NULL AND EXISTS (
   FROM {{catalog}}.governance.rls_user_grants m
   WHERE m.email = current_user()
     AND m.attribute_type = p_attr_type
+    AND m.effective_date <= current_date()
+    AND (m.expiration_date IS NULL OR m.expiration_date >= current_date())
+    AND m.revoked_at IS NULL
     AND TRIM(LOWER(m.attribute_value)) = TRIM(LOWER(p_value))
 );
 
@@ -36,6 +39,9 @@ RETURN EXISTS (
   SELECT 1
   FROM {{catalog}}.governance.rls_user_grants m
   WHERE m.email = current_user()
+    AND m.effective_date <= current_date()
+    AND (m.expiration_date IS NULL OR m.expiration_date >= current_date())
+    AND m.revoked_at IS NULL
     AND (
          (a1_val IS NOT NULL AND m.attribute_type = a1_type
             AND TRIM(LOWER(m.attribute_value)) = TRIM(LOWER(a1_val)))
@@ -95,6 +101,9 @@ LEFT JOIN (
         WHERE policy_type = 'ROW_FILTER') p
   LEFT JOIN (SELECT attribute_type, count(*) c
              FROM {{catalog}}.governance.rls_user_grants
+             WHERE revoked_at IS NULL
+               AND effective_date <= current_date()
+               AND (expiration_date IS NULL OR expiration_date >= current_date())
              GROUP BY attribute_type) g
     ON g.attribute_type = p.attr
   GROUP BY p.policy_name

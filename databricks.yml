@@ -1,0 +1,36 @@
+bundle:
+  name: control-table-abac
+
+include:
+  - resources/*.yml
+
+variables:
+  catalog:
+    description: Existing Unity Catalog catalog governed by this deployment.
+  governance_schema:
+    default: governance
+  run_as_user:
+    description: Production service principal application ID or temporary deployment user.
+    default: ${workspace.current_user.userName}
+  job_admin_group:
+    description: Account group allowed to manage the policy job.
+    default: data-governance-team
+  job_viewer_group:
+    description: Account group allowed to view policy runs.
+    default: data-stewards
+
+workspace:
+  root_path: /Workspace/Shared/.bundle/${bundle.name}/${bundle.target}
+
+targets:
+  dev:
+    default: true
+    mode: development
+    variables:
+      catalog: abac_demo
+
+  prod:
+    mode: production
+    variables:
+      catalog: abac_prod
+

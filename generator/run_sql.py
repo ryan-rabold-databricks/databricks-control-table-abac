@@ -20,10 +20,11 @@ import json
 import os
 import subprocess
 import sys
+import time
 
 # Configure via environment or CLI flags (no environment-specific defaults baked in).
 WAREHOUSE_DEFAULT = os.environ.get("DATABRICKS_WAREHOUSE_ID", "")
-PROFILE_DEFAULT = os.environ.get("DATABRICKS_CONFIG_PROFILE", "DEFAULT")
+PROFILE_DEFAULT = os.environ.get("DATABRICKS_CONFIG_PROFILE", "")
 CATALOG_DEFAULT = os.environ.get("ABAC_CATALOG", "abac_demo")
 
 
@@ -31,7 +32,8 @@ def run_statement(stmt, profile, warehouse, catalog):
     payload = {
         "warehouse_id": warehouse,
         "catalog": catalog,
-        "wait_timeout": "50s",
+        "wait_timeout": "30s",
+        "on_wait_timeout": "CONTINUE",
         "statement": stmt,
     }
     proc = subprocess.run(
@@ -43,6 +45,18 @@ def run_statement(stmt, profile, warehouse, catalog):
         return False, proc.stderr.strip() or proc.stdout.strip()
     resp = json.loads(proc.stdout)
     state = resp.get("status", {}).get("state")
+    statement_id = resp.get("statement_id")
+    deadline = time.time() + 1800
+    while state in ("PENDING", "RUNNING") and time.time() < deadline:
+        time.sleep(3)
+        poll = subprocess.run(
+            ["databricks", "api", "get", f"/api/2.0/sql/statements/{statement_id}",
+             "--profile", profile], capture_output=True, text=True,
+        )
+        if poll.returncode != 0:
+            return False, poll.stderr.strip() or poll.stdout.strip()
+        resp = json.loads(poll.stdout)
+        state = resp.get("status", {}).get("state")
     if state == "SUCCEEDED":
         result = resp.get("result") or {}
         return True, result.get("data_array")
@@ -60,6 +74,10 @@ def main():
     ap.add_argument("--warehouse", default=WAREHOUSE_DEFAULT)
     ap.add_argument("--catalog", default=CATALOG_DEFAULT)
     args = ap.parse_args()
+    if not args.profile:
+        ap.error("--profile is required (or set DATABRICKS_CONFIG_PROFILE explicitly)")
+    if not args.warehouse:
+        ap.error("--warehouse is required (or set DATABRICKS_WAREHOUSE_ID explicitly)")
 
     with open(args.file) as f:
         # Catalog is an input parameter: substitute the {{catalog}} placeholder so

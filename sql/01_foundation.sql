@@ -25,20 +25,30 @@ END;
 -- Adding a NEW attribute type = insert rows with a new attribute_type value
 -- (no new table, no new function).
 CREATE TABLE IF NOT EXISTS {{catalog}}.governance.rls_user_grants (
+  grant_id        STRING  COMMENT 'Stable unique grant identifier.',
   email           STRING  COMMENT 'Principal (matches current_user()).',
   attribute_type  STRING  COMMENT 'e.g. department_id, provider_id, facility_id.',
   attribute_value STRING  COMMENT 'Value the principal is scoped to.',
-  effective_date  DATE    COMMENT 'When this grant took effect.',
-  granted_by      STRING  COMMENT 'Who added this row (audit).'
+  effective_date  DATE    COMMENT 'When this grant takes effect.',
+  expiration_date DATE    COMMENT 'Optional expiry date.',
+  revoked_at      TIMESTAMP COMMENT 'Revocation time; NULL means active.',
+  granted_by      STRING  COMMENT 'Who added this row (audit).',
+  approved_by     STRING  COMMENT 'Governance approver.',
+  source_system   STRING  COMMENT 'Authoritative entitlement source.',
+  change_request_id STRING COMMENT 'Approval/change evidence.',
+  created_at      TIMESTAMP COMMENT 'Creation timestamp.'
 )
-COMMENT 'Unified RBAC mapping: current_user() -> (attribute_type, attribute_value). Single source for all row-scope grants.';
+COMMENT 'Unified user-to-row-scope entitlements with effective dating, revocation, source, and approval evidence.';
 
 -- @@
 -- Control table: ONE ROW PER POLICY. This is the declarative surface the
 -- generator renders CREATE OR REPLACE POLICY DDL from and reconciles against.
 CREATE TABLE IF NOT EXISTS {{catalog}}.governance.policy_control (
+  policy_id         STRING  COMMENT 'Stable unique policy identifier.',
   policy_name       STRING  COMMENT 'Unique policy name.',
   policy_type       STRING  COMMENT 'ROW_FILTER or COLUMN_MASK.',
+  scope_type        STRING  COMMENT 'CATALOG, SCHEMA, or TABLE.',
+  scope_name        STRING  COMMENT 'Fully-qualified securable receiving the policy.',
   udf               STRING  COMMENT 'Fully-qualified function the policy binds.',
   attr_types        ARRAY<STRING> COMMENT 'Mapping attribute_type per slot, aligned with tag_values (NULL for masks). Length picks single- vs multi-attribute binding.',
   tag_key           STRING  COMMENT 'Governed tag key that activates this policy.',
@@ -48,12 +58,49 @@ CREATE TABLE IF NOT EXISTS {{catalog}}.governance.policy_control (
   enabled           BOOLEAN COMMENT 'DESIRED state (human-set): generator applies when TRUE, drops when FALSE.',
   comment           STRING  COMMENT 'Human-readable purpose (rendered into policy COMMENT).',
   owner             STRING  COMMENT 'Accountable owner (audit).',
+  approval_status   STRING  COMMENT 'DRAFT, APPROVED, REJECTED, or RETIRED.',
+  approved_by       STRING  COMMENT 'Governance approver.',
+  approved_at       TIMESTAMP COMMENT 'Approval timestamp.',
+  change_request_id STRING  COMMENT 'Change/approval evidence identifier.',
+  policy_version    INT     COMMENT 'Monotonically increasing definition version.',
+  created_by        STRING  COMMENT 'Definition creator.',
+  created_at        TIMESTAMP COMMENT 'Definition creation time.',
   updated_at        TIMESTAMP COMMENT 'Last change (audit).',
   apply_status      STRING  COMMENT 'OBSERVED state (generator-set): APPLIED|FAILED|SKIPPED|DISABLED|PENDING.',
   last_applied_at   TIMESTAMP COMMENT 'Last successful apply/drop (generator-set).',
   last_error        STRING  COMMENT 'Last failure detail, NULL when healthy (generator-set).'
 )
 COMMENT 'Declarative source of truth for ABAC policies. enabled=intent; apply_status=reality. Insert/disable a row -> run generator -> policy applied/removed.';
+
+-- @@
+CREATE TABLE IF NOT EXISTS {{catalog}}.governance.managed_policy_inventory (
+  policy_name       STRING,
+  scope_type        STRING,
+  scope_name        STRING,
+  policy_id         STRING,
+  policy_version    INT,
+  ddl_hash          STRING,
+  managed_by        STRING,
+  first_applied_at  TIMESTAMP,
+  last_applied_at   TIMESTAMP,
+  retired_at        TIMESTAMP
+)
+COMMENT 'Ownership boundary for policies created by this framework; only inventory entries are eligible for orphan reconciliation.';
+
+-- @@
+CREATE TABLE IF NOT EXISTS {{catalog}}.governance.policy_deployment_events (
+  event_id          STRING,
+  run_id            STRING,
+  policy_name       STRING,
+  policy_version    INT,
+  action            STRING,
+  outcome           STRING,
+  ddl_hash          STRING,
+  executed_by       STRING,
+  event_time        TIMESTAMP,
+  error_message     STRING
+)
+COMMENT 'Append-only framework deployment evidence for plans, applies, failures, and retirements.';
 
 -- @@
 -- Consolidated row-scope filter (created after its mapping table exists).
@@ -70,6 +117,9 @@ RETURN p_value IS NOT NULL AND EXISTS (
   FROM {{catalog}}.governance.rls_user_grants m
   WHERE m.email = current_user()
     AND m.attribute_type = p_attr_type
+    AND m.effective_date <= current_date()
+    AND (m.expiration_date IS NULL OR m.expiration_date >= current_date())
+    AND m.revoked_at IS NULL
     AND TRIM(LOWER(m.attribute_value)) = TRIM(LOWER(p_value))
 );
 
@@ -85,6 +135,9 @@ RETURN EXISTS (
   SELECT 1
   FROM {{catalog}}.governance.rls_user_grants m
   WHERE m.email = current_user()
+    AND m.effective_date <= current_date()
+    AND (m.expiration_date IS NULL OR m.expiration_date >= current_date())
+    AND m.revoked_at IS NULL
     AND (
          (a1_val IS NOT NULL AND m.attribute_type = a1_type
             AND TRIM(LOWER(m.attribute_value)) = TRIM(LOWER(a1_val)))

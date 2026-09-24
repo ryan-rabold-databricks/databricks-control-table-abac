@@ -1,0 +1,43 @@
+resources:
+  jobs:
+    abac_apply_policies:
+      name: "[${bundle.target}] abac_apply_policies"
+      description: Validates, plans, and reconciles framework-managed native Unity Catalog ABAC policies.
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      timeout_seconds: 3600
+      run_as:
+        user_name: ${var.run_as_user}
+      parameters:
+        - name: catalog
+          default: ${var.catalog}
+        - name: governance_schema
+          default: ${var.governance_schema}
+        - name: dry_run
+          default: "true"
+        - name: reconcile_orphans
+          default: "false"
+      tasks:
+        - task_key: reconcile_abac_policies
+          notebook_task:
+            notebook_path: ../generator/apply_policies_job.py
+            source: WORKSPACE
+            base_parameters:
+              catalog: "{{job.parameters.catalog}}"
+              governance_schema: "{{job.parameters.governance_schema}}"
+              dry_run: "{{job.parameters.dry_run}}"
+              reconcile_orphans: "{{job.parameters.reconcile_orphans}}"
+          timeout_seconds: 3300
+          max_retries: 0
+      health:
+        rules:
+          - metric: RUN_DURATION_SECONDS
+            op: GREATER_THAN
+            value: 1800
+      permissions:
+        - level: CAN_MANAGE
+          group_name: ${var.job_admin_group}
+        - level: CAN_VIEW
+          group_name: ${var.job_viewer_group}
+

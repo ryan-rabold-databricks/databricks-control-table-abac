@@ -124,9 +124,15 @@ Recursive `rls_employee`: the reporting tree's transitive closure is pre-expande
 - **Zero-grant warning** — a row filter with no grants for any of its attributes would lock everyone out.
 - **Status write-back** — `apply_status` / `last_applied_at` / `last_error` after every run; the notebook raises at the end if anything failed so the job run is flagged.
 
-Two generators, kept in parity: `generator/apply_policies.py` (CLI) and
-`generator/apply_policies_job.py` (the deployed notebook, job `abac_apply_policies`,
-param `dry_run` default `true`).
+The CLI and deployed notebook share validation and DDL rendering from
+`generator/policy_engine.py`. The Lakeflow Job is deployed with the bundle resource
+`resources/abac_apply_policies.job.yml`, defaults to `dry_run=true`, and enforces a single
+concurrent run.
+
+For production controls, upgrade guidance, approval gates, managed-orphan reconciliation,
+and deployment instructions, see [`PRODUCTION_DEPLOYMENT.md`](PRODUCTION_DEPLOYMENT.md).
+For the target FEVM workspace redeployment sequence, see
+[`REDEPLOY_FEV_CLASSIC_STABLE.md`](REDEPLOY_FEV_CLASSIC_STABLE.md).
 
 ---
 
@@ -173,7 +179,7 @@ equivalent `--warehouse` / `--profile` / `--catalog` flags):
 | Variable | Purpose | Default |
 |---|---|---|
 | `DATABRICKS_WAREHOUSE_ID` | SQL warehouse the CLI generator / `run_sql.py` use | *(required)* |
-| `DATABRICKS_CONFIG_PROFILE` | Databricks CLI auth profile | `DEFAULT` |
+| `DATABRICKS_CONFIG_PROFILE` | Explicit Databricks CLI auth profile | *(required unless `--profile` is passed)* |
 | `ABAC_CATALOG` | Target Unity Catalog (**must already exist**) | `abac_demo` |
 
 - **Catalog is an input parameter, not created here.** The SQL files use a `{{catalog}}`
@@ -197,7 +203,8 @@ First register the governed tags (see `sql/00_setup.sql` header), then:
 
 ```bash
 export DATABRICKS_WAREHOUSE_ID=<your-warehouse-id>
-export ABAC_CATALOG=<your-existing-catalog>          # + DATABRICKS_CONFIG_PROFILE if not DEFAULT
+export ABAC_CATALOG=<your-existing-catalog>
+export DATABRICKS_CONFIG_PROFILE=<your-explicit-profile>
 python generator/run_sql.py sql/00_setup.sql             # schemas + demo tables in your catalog
 python generator/run_sql.py sql/01_foundation.sql        # functions + control tables
 python generator/run_sql.py sql/02_data.sql              # synthetic data + column tags
