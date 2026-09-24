@@ -12,13 +12,22 @@ GROUP BY policy_name HAVING count(*) > 1;
 
 -- @@
 -- Duplicate active entitlements must return zero rows.
-SELECT email, attribute_type, attribute_value, count(*) AS duplicates
-FROM {{catalog}}.governance.rls_user_grants
+SELECT principal_type, coalesce(principal_id, principal_name) AS principal_key,
+       attribute_type, attribute_value, count(*) AS duplicates
+FROM {{catalog}}.governance.rls_principal_grants
 WHERE revoked_at IS NULL
   AND effective_date <= current_date()
   AND (expiration_date IS NULL OR expiration_date >= current_date())
-GROUP BY email, attribute_type, attribute_value
+GROUP BY principal_type, coalesce(principal_id, principal_name), attribute_type, attribute_value
 HAVING count(*) > 1;
+
+-- @@
+-- Invalid or unusable principal records must return zero rows.
+SELECT grant_id, principal_type, principal_id, principal_name
+FROM {{catalog}}.governance.rls_principal_grants
+WHERE principal_type NOT IN ('USER', 'GROUP', 'SERVICE_PRINCIPAL')
+   OR (principal_id IS NULL AND principal_name IS NULL)
+   OR (principal_type = 'GROUP' AND principal_name IS NULL);
 
 -- @@
 -- Approved/enabled policies that are not observed as applied.
@@ -41,4 +50,3 @@ FROM {{catalog}}.governance.policy_deployment_events
 WHERE event_time >= current_timestamp() - INTERVAL 30 DAYS
   AND outcome <> 'SUCCEEDED'
 ORDER BY event_time DESC;
-

@@ -143,7 +143,7 @@ def main():
         ap.error("--warehouse is required (or set DATABRICKS_WAREHOUSE_ID explicitly)")
     cat = args.catalog
     control = f"{cat}.{args.governance_schema}.policy_control"
-    mapping = f"{cat}.{args.governance_schema}.rls_user_grants"
+    mapping = f"{cat}.{args.governance_schema}.rls_principal_grants"
     inventory_table = f"{cat}.{args.governance_schema}.managed_policy_inventory"
 
     def sql(s):

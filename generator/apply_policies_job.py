@@ -26,7 +26,7 @@ GOVERNANCE_SCHEMA = dbutils.widgets.get("governance_schema")
 RECONCILE_ORPHANS = dbutils.widgets.get("reconcile_orphans").lower() == "true"
 EXECUTION_ID = dbutils.widgets.get("execution_id") or "interactive"
 CONTROL_TABLE = f"{CATALOG}.{GOVERNANCE_SCHEMA}.policy_control"
-MAPPING_TABLE = f"{CATALOG}.{GOVERNANCE_SCHEMA}.rls_user_grants"
+MAPPING_TABLE = f"{CATALOG}.{GOVERNANCE_SCHEMA}.rls_principal_grants"
 INVENTORY_TABLE = f"{CATALOG}.{GOVERNANCE_SCHEMA}.managed_policy_inventory"
 EVENT_TABLE = f"{CATALOG}.{GOVERNANCE_SCHEMA}.policy_deployment_events"
 
@@ -111,10 +111,10 @@ duplicate_ids = [r[0] for r in spark.sql(
 if duplicate_ids:
     raise ValueError(f"Duplicate policy_id values: {sorted(duplicate_ids)}")
 duplicate_grants = spark.sql(
-    f"SELECT email, attribute_type, attribute_value, count(*) c FROM {MAPPING_TABLE} "
+    f"SELECT principal_type, coalesce(principal_id, principal_name) principal_key, attribute_type, attribute_value, count(*) c FROM {MAPPING_TABLE} "
     "WHERE revoked_at IS NULL AND effective_date <= current_date() "
     "AND (expiration_date IS NULL OR expiration_date >= current_date()) "
-    "GROUP BY email, attribute_type, attribute_value HAVING count(*) > 1"
+    "GROUP BY principal_type, coalesce(principal_id, principal_name), attribute_type, attribute_value HAVING count(*) > 1"
 ).limit(20).collect()
 if duplicate_grants:
     raise ValueError(f"Duplicate active row-scope grants found: {duplicate_grants}")

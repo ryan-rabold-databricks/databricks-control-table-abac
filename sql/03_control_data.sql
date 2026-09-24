@@ -41,14 +41,14 @@ VALUES
 -- Row-scope grants for the department/provider (encounter) demo. Employee-hierarchy
 -- grants are materialized separately in 05. Replace you@example.com with your own
 -- login to see the encounter filter act on your session.
-INSERT OVERWRITE {{catalog}}.governance.rls_user_grants
-  (grant_id, email, attribute_type, attribute_value, effective_date, expiration_date,
+INSERT OVERWRITE {{catalog}}.governance.rls_principal_grants
+  (grant_id, principal_type, principal_id, principal_name, attribute_type, attribute_value, effective_date, expiration_date,
    revoked_at, granted_by, approved_by, source_system, change_request_id, created_at)
 VALUES
-  ('G-001','you@example.com',         'department_id','CARDIOLOGY', current_date(),NULL,NULL,'demo','governance@example.com','demo','DEMO-003',current_timestamp()),
-  ('G-002','you@example.com',         'provider_id','DR004', current_date(),NULL,NULL,'demo','governance@example.com','demo','DEMO-003',current_timestamp()),
-  ('G-003','cardio.lead@example.com', 'department_id','CARDIOLOGY', current_date(),NULL,NULL,'demo','governance@example.com','demo','DEMO-003',current_timestamp()),
-  ('G-004','ed.director@example.com', 'department_id','EMERGENCY', current_date(),NULL,NULL,'demo','governance@example.com','demo','DEMO-003',current_timestamp()),
-  ('G-005','onc.chief@example.com',   'department_id','ONCOLOGY', current_date(),NULL,NULL,'demo','governance@example.com','demo','DEMO-003',current_timestamp()),
-  ('G-006','multi.dept@example.com',  'department_id','CARDIOLOGY', current_date(),NULL,NULL,'demo','governance@example.com','demo','DEMO-003',current_timestamp()),
-  ('G-007','multi.dept@example.com',  'department_id','ORTHOPEDICS',current_date(),NULL,NULL,'demo','governance@example.com','demo','DEMO-003',current_timestamp());
+  ('G-001','USER',NULL,'you@example.com',         'department_id','CARDIOLOGY', current_date(),NULL,NULL,'demo','governance@example.com','demo','DEMO-003',current_timestamp()),
+  ('G-002','USER',NULL,'you@example.com',         'provider_id','DR004', current_date(),NULL,NULL,'demo','governance@example.com','demo','DEMO-003',current_timestamp()),
+  ('G-003','USER',NULL,'cardio.lead@example.com', 'department_id','CARDIOLOGY', current_date(),NULL,NULL,'demo','governance@example.com','demo','DEMO-003',current_timestamp()),
+  ('G-004','USER',NULL,'ed.director@example.com', 'department_id','EMERGENCY', current_date(),NULL,NULL,'demo','governance@example.com','demo','DEMO-003',current_timestamp()),
+  ('G-005','USER',NULL,'onc.chief@example.com',   'department_id','ONCOLOGY', current_date(),NULL,NULL,'demo','governance@example.com','demo','DEMO-003',current_timestamp()),
+  ('G-006','USER',NULL,'multi.dept@example.com',  'department_id','CARDIOLOGY', current_date(),NULL,NULL,'demo','governance@example.com','demo','DEMO-003',current_timestamp()),
+  ('G-007','USER',NULL,'multi.dept@example.com',  'department_id','ORTHOPEDICS',current_date(),NULL,NULL,'demo','governance@example.com','demo','DEMO-003',current_timestamp());

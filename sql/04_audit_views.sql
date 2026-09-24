@@ -33,7 +33,9 @@ WHERE pc.apply_status = 'APPLIED';
 -- of EITHER attribute, which is exactly the union a user can see.
 CREATE OR REPLACE VIEW {{catalog}}.governance.vw_effective_row_access AS
 SELECT
-  m.email            AS principal,
+  m.principal_type,
+  m.principal_id,
+  m.principal_name   AS principal,
   pe.policy_name,
   pe.attr            AS attribute_type,
   m.attribute_value  AS allowed_value,
@@ -47,7 +49,7 @@ FROM (
   FROM {{catalog}}.governance.policy_control
   WHERE apply_status = 'APPLIED' AND policy_type = 'ROW_FILTER'
 ) pe
-JOIN {{catalog}}.governance.rls_user_grants m
+JOIN {{catalog}}.governance.rls_principal_grants m
   ON m.attribute_type = pe.attr
 WHERE m.effective_date <= current_date()
   AND (m.expiration_date IS NULL OR m.expiration_date >= current_date())
@@ -80,7 +82,7 @@ LEFT JOIN (
         FROM {{catalog}}.governance.policy_control
         WHERE policy_type = 'ROW_FILTER') p
   LEFT JOIN (SELECT attribute_type, count(*) c
-             FROM {{catalog}}.governance.rls_user_grants
+             FROM {{catalog}}.governance.rls_principal_grants
              WHERE revoked_at IS NULL
                AND effective_date <= current_date()
                AND (expiration_date IS NULL OR expiration_date >= current_date())

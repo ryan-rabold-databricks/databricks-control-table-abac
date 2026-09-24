@@ -21,12 +21,14 @@ RETURN CASE
 END;
 
 -- @@
--- Unified identity->scope mapping (tall). Adding a person to a scope = 1 insert.
+-- Unified principal->scope mapping (tall). Adding a principal to a scope = 1 insert.
 -- Adding a NEW attribute type = insert rows with a new attribute_type value
 -- (no new table, no new function).
-CREATE TABLE IF NOT EXISTS {{catalog}}.governance.rls_user_grants (
+CREATE TABLE IF NOT EXISTS {{catalog}}.governance.rls_principal_grants (
   grant_id        STRING  COMMENT 'Stable unique grant identifier.',
-  email           STRING  COMMENT 'Principal (matches current_user()).',
+  principal_type  STRING  COMMENT 'USER, GROUP, or SERVICE_PRINCIPAL.',
+  principal_id    STRING  COMMENT 'Immutable account identity ID when available.',
+  principal_name  STRING  COMMENT 'User email, account group name, or service-principal application ID/name.',
   attribute_type  STRING  COMMENT 'e.g. department_id, provider_id, facility_id.',
   attribute_value STRING  COMMENT 'Value the principal is scoped to.',
   effective_date  DATE    COMMENT 'When this grant takes effect.',
@@ -38,7 +40,7 @@ CREATE TABLE IF NOT EXISTS {{catalog}}.governance.rls_user_grants (
   change_request_id STRING COMMENT 'Approval/change evidence.',
   created_at      TIMESTAMP COMMENT 'Creation timestamp.'
 )
-COMMENT 'Unified user-to-row-scope entitlements with effective dating, revocation, source, and approval evidence.';
+COMMENT 'Unified principal-to-row-scope entitlements for users, groups, and service principals.';
 
 -- @@
 -- Control table: ONE ROW PER POLICY. This is the declarative surface the
@@ -111,12 +113,17 @@ CREATE OR REPLACE FUNCTION {{catalog}}.governance.rls_scope_filter(
   p_attr_type STRING,
   p_value     STRING)
 RETURNS BOOLEAN
-COMMENT 'Row visible if current_user() is mapped to this attribute value in rls_user_grants.'
+COMMENT 'Row visible if the current user/service principal or one of its account groups has this grant.'
 RETURN p_value IS NOT NULL AND EXISTS (
   SELECT 1
-  FROM {{catalog}}.governance.rls_user_grants m
-  WHERE m.email = current_user()
-    AND m.attribute_type = p_attr_type
+  FROM {{catalog}}.governance.rls_principal_grants m
+  WHERE m.attribute_type = p_attr_type
+    AND (
+         (UPPER(m.principal_type) = 'GROUP' AND is_account_group_member(m.principal_name))
+      OR (UPPER(m.principal_type) IN ('USER', 'SERVICE_PRINCIPAL')
+          AND (LOWER(m.principal_name) = LOWER(current_user())
+               OR LOWER(m.principal_id) = LOWER(current_user())))
+    )
     AND m.effective_date <= current_date()
     AND (m.expiration_date IS NULL OR m.expiration_date >= current_date())
     AND m.revoked_at IS NULL
@@ -130,14 +137,19 @@ CREATE OR REPLACE FUNCTION {{catalog}}.governance.rls_scope_filter2(
   a1_type STRING, a1_val STRING,
   a2_type STRING, a2_val STRING)
 RETURNS BOOLEAN
-COMMENT 'Row visible if current_user() is mapped to a1 OR a2 in rls_user_grants (OR-composed).'
+COMMENT 'Row visible if the current principal has a1 OR a2 directly or through an account group.'
 RETURN EXISTS (
   SELECT 1
-  FROM {{catalog}}.governance.rls_user_grants m
-  WHERE m.email = current_user()
-    AND m.effective_date <= current_date()
+  FROM {{catalog}}.governance.rls_principal_grants m
+  WHERE m.effective_date <= current_date()
     AND (m.expiration_date IS NULL OR m.expiration_date >= current_date())
     AND m.revoked_at IS NULL
+    AND (
+         (UPPER(m.principal_type) = 'GROUP' AND is_account_group_member(m.principal_name))
+      OR (UPPER(m.principal_type) IN ('USER', 'SERVICE_PRINCIPAL')
+          AND (LOWER(m.principal_name) = LOWER(current_user())
+               OR LOWER(m.principal_id) = LOWER(current_user())))
+    )
     AND (
          (a1_val IS NOT NULL AND m.attribute_type = a1_type
             AND TRIM(LOWER(m.attribute_value)) = TRIM(LOWER(a1_val)))
