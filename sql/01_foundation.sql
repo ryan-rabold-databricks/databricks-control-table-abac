@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS {{catalog}}.governance.rls_principal_grants (
   grant_id        STRING  COMMENT 'Stable unique grant identifier.',
   principal_type  STRING  COMMENT 'USER, GROUP, or SERVICE_PRINCIPAL.',
   principal_id    STRING  COMMENT 'Immutable account identity ID when available.',
-  principal_name  STRING  COMMENT 'User email, account group name, or service-principal application ID/name.',
+  principal_name  STRING  COMMENT 'Runtime identity: user email, account group name, or service-principal application ID (never display name). Must match current_user() for direct grants.',
   attribute_type  STRING  COMMENT 'e.g. department_id, provider_id, facility_id.',
   attribute_value STRING  COMMENT 'Value the principal is scoped to.',
   effective_date  DATE    COMMENT 'When this grant takes effect.',

@@ -81,6 +81,9 @@ Demo data: `gold.fact_encounter` (300 rows), `gold.dim_patient` (50 rows, PII),
 `healthcare_demo.employee_compensation` (10 rows), `gold.provider_productivity` (30 rows,
 used by the add-a-policy runbook).
 
+For direct service-principal row grants, store the application ID returned by
+`current_user()` in `principal_name`; a service principal display name does not resolve.
+
 ---
 
 ## Single vs. multi-attribute row filters

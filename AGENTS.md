@@ -14,4 +14,3 @@ This project deploys Unity Catalog ABAC policy automation with Databricks Declar
 ## Verification
 
 Run `python3 -m unittest discover -s tests -v` after changing policy rendering or validation.
-

@@ -33,7 +33,9 @@ At the policy scope, grant `MANAGE` or ownership. Grant `USE CATALOG`, `USE SCHE
 One row represents one principal-to-attribute-value grant. Set `principal_type` to
 `USER`, `GROUP`, or `SERVICE_PRINCIPAL`; retain the immutable account identity in
 `principal_id` when available and the runtime-resolvable email, group name, or application
-identity in the required `principal_name`. The effective uniqueness key is
+ID in the required `principal_name`. For `SERVICE_PRINCIPAL`, use the application ID that
+`current_user()` returns—never the display name. `sql/06_validation.sql` rejects non-UUID
+service-principal names. The effective uniqueness key is
 `(principal_type, coalesce(principal_id, principal_name), attribute_type, attribute_value)`.
 Group membership is evaluated at query time, so membership changes do not require rewriting grants.
 Disabling an applied policy requires approved `RETIRED` metadata; an unapproved disable is

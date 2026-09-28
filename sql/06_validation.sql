@@ -27,7 +27,11 @@ SELECT grant_id, principal_type, principal_id, principal_name
 FROM {{catalog}}.governance.rls_principal_grants
 WHERE principal_type NOT IN ('USER', 'GROUP', 'SERVICE_PRINCIPAL')
    OR (principal_id IS NULL AND principal_name IS NULL)
-   OR principal_name IS NULL;
+   OR principal_name IS NULL
+   -- Direct service-principal grants resolve current_user() by application ID,
+   -- not by the service principal's display name.
+   OR (principal_type = 'SERVICE_PRINCIPAL' AND NOT principal_name RLIKE
+       '^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$');
 
 -- @@
 -- Approved/enabled policies that are not observed as applied.

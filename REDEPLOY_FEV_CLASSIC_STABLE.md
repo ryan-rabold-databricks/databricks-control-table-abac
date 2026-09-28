@@ -150,4 +150,3 @@ Only after reviewing the production dry run should you repeat the last command w
 ## 8. Orphan reconciliation
 
 Do not enable orphan reconciliation during the initial redeployment. First run the inventory-orphan query in `sql/06_validation.sql`. If every result is approved for retirement, run the job with `reconcile_orphans=true`. Only policies recorded in `managed_policy_inventory` are eligible for deletion.
-
