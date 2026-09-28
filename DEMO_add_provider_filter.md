@@ -26,7 +26,7 @@ Governed tags are a closed set, so the value must exist before it can be used.
 **UI:** Catalog → Governed tags → `row_filter_policy` → Edit → add value `provider_id`.
 **or CLI:**
 ```bash
-databricks tag-policies update-tag-policy row_filter_policy values --profile DEFAULT --json \
+databricks tag-policies update-tag-policy row_filter_policy values --profile <PROFILE> --json \
 '{"tag_key":"row_filter_policy","values":[{"name":"department"},{"name":"data_classification"},{"name":"department_id"},{"name":"facility_id"},{"name":"employee_id"},{"name":"provider_id"}]}'
 ```
 
@@ -34,15 +34,17 @@ databricks tag-policies update-tag-policy row_filter_policy values --profile DEF
 SQL Editor:
 ```sql
 INSERT INTO {{catalog}}.governance.policy_control
-  (policy_name, policy_type, udf, attr_types, tag_key, tag_values,
-   to_principals, except_principals, enabled, comment, owner, updated_at)
+  (policy_id, policy_name, policy_type, scope_type, scope_name, udf, attr_types, tag_key, tag_values,
+   to_principals, except_principals, enabled, comment, owner, approval_status,
+   approved_by, approved_at, change_request_id, policy_version, created_by, created_at, updated_at)
 VALUES (
-  'rls_provider', 'ROW_FILTER',
+  'POL-PROVIDER-001', 'rls_provider', 'ROW_FILTER', 'CATALOG', '{{catalog}}',
   '{{catalog}}.governance.rls_scope_filter',
   array('provider_id'), 'row_filter_policy', array('provider_id'),
   array('account users'), array('data-governance-team'),
   true, 'Providers see only their own productivity rows (scoped by provider_id).',
-  current_user(), current_timestamp()
+  current_user(), 'APPROVED', 'governance@example.com', current_timestamp(),
+  'DEMO-PROVIDER-001', 1, current_user(), current_timestamp(), current_timestamp()
 );
 ```
 > Say: *"This is the whole policy definition. Same shared function every other row filter uses."*
@@ -72,8 +74,11 @@ WHERE policy_name='rls_provider';   -- LOCKOUT_NO_GRANTS
 
 ## 5. Grant access — ONE row, instant, no redeploy
 ```sql
-INSERT INTO {{catalog}}.governance.rls_user_grants
-VALUES (current_user(), 'provider_id', 'DR004', current_date(), 'demo');
+INSERT INTO {{catalog}}.governance.rls_principal_grants
+  (grant_id, principal_type, principal_id, principal_name, attribute_type, attribute_value, effective_date, expiration_date,
+   revoked_at, granted_by, approved_by, source_system, change_request_id, created_at)
+VALUES (uuid(), 'USER', NULL, current_user(), 'provider_id', 'DR004', current_date(), NULL,
+        NULL, current_user(), 'governance@example.com', 'demo', 'DEMO-PROVIDER-001', current_timestamp());
 
 SELECT provider_id, count(*) FROM {{catalog}}.gold.provider_productivity GROUP BY 1 ORDER BY 1;
 ```
@@ -96,11 +101,11 @@ SELECT * FROM {{catalog}}.governance.vw_policy_health;   -- rls_provider now OK
 DROP POLICY rls_provider ON CATALOG {{catalog}};
 ALTER TABLE {{catalog}}.gold.provider_productivity ALTER COLUMN provider_id UNSET TAGS ('row_filter_policy');
 DELETE FROM {{catalog}}.governance.policy_control      WHERE policy_name='rls_provider';
-DELETE FROM {{catalog}}.governance.rls_user_grants WHERE attribute_type='provider_id';
+DELETE FROM {{catalog}}.governance.rls_principal_grants WHERE attribute_type='provider_id';
 ```
 ```bash
 # de-register the governed value so step 1 is real again
-databricks tag-policies update-tag-policy row_filter_policy values --profile DEFAULT --json \
+databricks tag-policies update-tag-policy row_filter_policy values --profile <PROFILE> --json \
 '{"tag_key":"row_filter_policy","values":[{"name":"department"},{"name":"data_classification"},{"name":"department_id"},{"name":"facility_id"},{"name":"employee_id"}]}'
 ```
 
